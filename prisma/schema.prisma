@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlaceCategory {
+  CAFETERIA
+  RESTAURANTE
+  CASA
+  HOTEL
+  PARQUE
+  CINE
+  PASEO
+  FERIA
+  MUSEO
+  BAR
+  PLAYA
+  CONCIERTO
+  DEPORTE
+  COMPRAS
+  OTRO
+}
+
+enum FriendshipStatus {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  avatarUrl     String?
+  createdAt     DateTime  @default(now())
+
+  // Amistades donde este usuario mandó la solicitud
+  friendshipsSent     Friendship[] @relation("SentFriendships")
+  // Amistades donde este usuario recibió la solicitud
+  friendshipsReceived Friendship[] @relation("ReceivedFriendships")
+
+  // Espacios que este usuario creó
+  ownedSpaces   Space[]        @relation("OwnedSpaces")
+  // Espacios compartidos con este usuario
+  memberSpaces  SpaceMember[]
+
+  places        Place[]
+  visits        Visit[]
+}
+
+model Friendship {
+  id          String            @id @default(cuid())
+  requester   User              @relation("SentFriendships", fields: [requesterId], references: [id])
+  requesterId String
+  addressee   User              @relation("ReceivedFriendships", fields: [addresseeId], references: [id])
+  addresseeId String
+  status      FriendshipStatus  @default(PENDIENTE)
+  createdAt   DateTime          @default(now())
+
+  @@unique([requesterId, addresseeId])
+}
+
+// Un "Space" es el álbum/historial: puede ser individual o compartido (pareja, amigos, grupo)
+model Space {
+  id          String         @id @default(cuid())
+  name        String         // ej. "Yo y Ana", "Viajes con los amigos"
+  owner       User           @relation("OwnedSpaces", fields: [ownerId], references: [id])
+  ownerId     String
+  createdAt   DateTime       @default(now())
+
+  members     SpaceMember[]
+  places      Place[]
+}
+
+model SpaceMember {
+  id        String   @id @default(cuid())
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  spaceId   String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  @@unique([spaceId, userId])
+}
+
+model Place {
+  id          String        @id @default(cuid())
+  space       Space         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  spaceId     String
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  createdById String
+
+  name        String
+  category    PlaceCategory
+
+  latitude    Float
+  longitude   Float
+
+  visits      Visit[]
+  createdAt   DateTime      @default(now())
+
+  @@index([spaceId])
+}
+
+model Visit {
+  id          String   @id @default(cuid())
+  place       Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  placeId     String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+
+  description String   @db.Text
+  visitDate   DateTime
+
+  photos      Photo[]
+  createdAt   DateTime @default(now())
+
+  @@index([placeId])
+  @@index([visitDate])
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  visit     Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  visitId   String
+  url       String
+  createdAt DateTime @default(now())
+}
