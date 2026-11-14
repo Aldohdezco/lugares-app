@@ -2,6 +2,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicUser } from "@/lib/publicUser";
+import { acceptedFriendIds } from "@/lib/friends";
 
 // Lista los espacios (individual + compartidos) del usuario
 export async function GET() {
@@ -11,7 +13,7 @@ export async function GET() {
 
   const spaces = await prisma.space.findMany({
     where: { members: { some: { userId } } },
-    include: { members: { include: { user: true } } },
+    include: { members: { include: { user: publicUser } } },
   });
 
   return NextResponse.json(spaces);
@@ -25,15 +27,21 @@ export async function POST(req: Request) {
 
   const { name, memberIds }: { name: string; memberIds: string[] } = await req.json();
 
+  // Solo se puede compartir con amistades aceptadas
+  const friends = await acceptedFriendIds(userId);
+  if ((memberIds || []).some((id) => id !== userId && !friends.has(id))) {
+    return NextResponse.json({ error: "Solo puedes agregar a tus amistades" }, { status: 403 });
+  }
+
   const space = await prisma.space.create({
     data: {
       name,
       ownerId: userId,
       members: {
-        create: [userId, ...memberIds.filter((id) => id !== userId)].map((id) => ({ userId: id })),
+        create: [userId, ...(memberIds || []).filter((id) => id !== userId)].map((id) => ({ userId: id })),
       },
     },
-    include: { members: { include: { user: true } } },
+    include: { members: { include: { user: publicUser } } },
   });
 
   return NextResponse.json(space);

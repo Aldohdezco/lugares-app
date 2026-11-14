@@ -2,6 +2,36 @@
 
 import { useRef, useState } from "react";
 import { IconPlus, IconClose } from "./icons/UiIcons";
+import { photoUrl } from "@/lib/photoUrl";
+
+const MAX_SIZE = 10 * 1024 * 1024; // límite de imagen del plan gratis de Cloudinary
+
+// Sube una foto: directo a Cloudinary con la firma que da el servidor,
+// o al disco del servidor si Cloudinary no está configurado.
+async function uploadOne(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Solo se pueden subir imágenes");
+  if (file.size > MAX_SIZE) throw new Error("La foto pesa más de 10MB");
+
+  const cfgRes = await fetch("/api/upload");
+  const cfg = await cfgRes.json();
+  if (!cfgRes.ok) throw new Error(cfg.error || "Error al subir");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  if (cfg.mode === "cloudinary") {
+    for (const [k, v] of Object.entries(cfg.fields)) formData.append(k, String(v));
+    const res = await fetch(cfg.uploadUrl, { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || "Error al subir");
+    return data.secure_url;
+  }
+
+  const res = await fetch("/api/upload", { method: "POST", body: formData });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Error al subir");
+  return data.url;
+}
 
 export default function PhotoUploader({
   urls,
@@ -26,14 +56,10 @@ export default function PhotoUploader({
 
     const newUrls: string[] = [];
     for (const file of Array.from(files)) {
-      const formData = new FormData();
-      formData.append("file", file);
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al subir");
-        newUrls.push(data.url);
-        sessionUploadedRef.current.add(data.url);
+        const url = await uploadOne(file);
+        newUrls.push(url);
+        sessionUploadedRef.current.add(url);
       } catch (err: any) {
         setError(err.message || "Error al subir una imagen");
       }
@@ -67,7 +93,7 @@ export default function PhotoUploader({
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         {urls.map((u, i) => (
           <div key={i} style={{ position: "relative" }}>
-            <img src={u} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border-line)" }} />
+            <img src={photoUrl(u, 112)} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border-line)" }} />
             <button
               onClick={() => removeAt(i)}
               style={{

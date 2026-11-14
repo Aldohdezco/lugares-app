@@ -2,6 +2,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicUser } from "@/lib/publicUser";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
       visitDate: new Date(visitDate),
       photos: { create: (photoUrls || []).map((url: string) => ({ url })) },
     },
-    include: { photos: true, createdBy: true },
+    include: { photos: true, createdBy: publicUser },
   });
 
   return NextResponse.json(visit);

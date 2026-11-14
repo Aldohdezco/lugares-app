@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicUser } from "@/lib/publicUser";
+import { acceptedFriendIds } from "@/lib/friends";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -16,11 +18,15 @@ export async function POST(req: Request) {
   });
   if (!isMember) return NextResponse.json({ error: "No perteneces a este espacio" }, { status: 403 });
 
+  if (!(await acceptedFriendIds(requesterId)).has(userId)) {
+    return NextResponse.json({ error: "Solo puedes agregar a tus amistades" }, { status: 403 });
+  }
+
   const member = await prisma.spaceMember.upsert({
     where: { spaceId_userId: { spaceId, userId } },
     update: {},
     create: { spaceId, userId },
-    include: { user: true },
+    include: { user: publicUser },
   });
 
   return NextResponse.json(member);

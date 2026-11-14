@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicUser } from "@/lib/publicUser";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -12,7 +13,7 @@ export async function GET() {
     where: {
       OR: [{ requesterId: userId }, { addresseeId: userId }],
     },
-    include: { requester: true, addressee: true },
+    include: { requester: publicUser, addressee: publicUser },
   });
 
   return NextResponse.json(friendships);

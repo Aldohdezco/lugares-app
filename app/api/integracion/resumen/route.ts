@@ -5,6 +5,7 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { CATEGORIES } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
+import { cdmxDayStart, isoToDateInputCDMX } from "@/lib/dates";
 
 // Integración con LifeOS (tablero personal). Solo lectura.
 // Llave: LIFEOS_TOKEN, o el archivo ~/LifeOS/integration-token si LifeOS está en la misma computadora.
@@ -38,18 +39,22 @@ export async function GET(req: NextRequest) {
 
   // Lugares de los espacios en los que participa el usuario
   const spaceFilter = { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] };
-  const [places, visits] = await Promise.all([
+  // Inicio del mes calendario actual, en hora de CDMX
+  const monthStart = cdmxDayStart(`${isoToDateInputCDMX(new Date().toISOString()).slice(0, 7)}-01`);
+  const visitWhere = { place: { space: spaceFilter } };
+  const [places, visits, totalVisits, monthVisits] = await Promise.all([
     prisma.place.findMany({ where: { space: spaceFilter }, select: { id: true, name: true, category: true, createdAt: true, _count: { select: { visits: true } } } }),
     prisma.visit.findMany({
-      where: { place: { space: spaceFilter } },
+      where: visitWhere,
       orderBy: { visitDate: "desc" },
-      take: 200,
+      take: 8,
       select: { visitDate: true, description: true, place: { select: { name: true, category: true } } },
     }),
+    prisma.visit.count({ where: visitWhere }),
+    prisma.visit.count({ where: { ...visitWhere, visitDate: { gte: monthStart } } }),
   ]);
 
   const base = process.env.NEXTAUTH_URL || req.nextUrl.origin;
-  const monthAgo = Date.now() - 30 * 86_400_000;
   const label = (c: string) => {
     const cat = CATEGORIES[c as keyof typeof CATEGORIES];
     return cat ? `${cat.emoji} ${cat.label}` : c;
@@ -63,11 +68,11 @@ export async function GET(req: NextRequest) {
     url: base,
     stats: [
       { label: "Lugares", value: places.length },
-      { label: "Visitas", value: visits.length },
-      { label: "Visitas este mes", value: visits.filter((v) => v.visitDate.getTime() >= monthAgo).length },
+      { label: "Visitas", value: totalVisits },
+      { label: "Visitas este mes", value: monthVisits },
       { label: "Por visitar", value: pending.length },
     ],
-    items: visits.slice(0, 8).map((v) => ({
+    items: visits.map((v) => ({
       title: v.place.name,
       subtitle: `${label(v.place.category)}${v.description ? ` · ${v.description.slice(0, 80)}` : ""}`,
       date: v.visitDate.toISOString(),

@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
+  // La app es privada: el registro solo se abre poniendo ALLOW_REGISTRATION=true
+  if (process.env.ALLOW_REGISTRATION !== "true") {
+    return NextResponse.json({ error: "El registro está cerrado" }, { status: 403 });
+  }
+
   const { name, email, password } = await req.json();
 
   if (!name || !email || !password) {

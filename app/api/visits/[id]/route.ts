@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deletePhotoFiles } from "@/lib/deletePhotoFile";
+import { publicUser } from "@/lib/publicUser";
+import { deletePhotoFiles } from "@/lib/photoStorage";
 
 async function assertMembership(visitId: string, userId: string) {
   const visit = await prisma.visit.findUnique({
@@ -49,7 +50,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const updated = await prisma.visit.findUnique({
     where: { id: params.id },
-    include: { photos: true, createdBy: true },
+    include: { photos: true, createdBy: publicUser },
   });
 
   return NextResponse.json(updated);

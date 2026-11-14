@@ -5,6 +5,7 @@ import { CATEGORIES, CategoryKey } from "@/lib/categories";
 import { CategoryIcon } from "./icons/CategoryIcons";
 import { IconClose, IconPlus, IconEdit, IconTrash } from "./icons/UiIcons";
 import { useLang } from "@/lib/i18n";
+import { photoUrl } from "@/lib/photoUrl";
 import { cdmxDateToISO, isoToDateInputCDMX, formatDateCDMX } from "@/lib/dates";
 import PhotoUploader from "./PhotoUploader";
 import Lightbox from "./Lightbox";
@@ -155,7 +156,7 @@ function ViewPlace({
                   {v.photos.map((ph, i) => (
                     <img
                       key={ph.id}
-                      src={ph.url}
+                      src={photoUrl(ph.url, 136)}
                       alt=""
                       onClick={() => onOpenLightbox({ urls: v.photos.map((p) => p.url), index: i })}
                       style={{ width: 68, height: 68, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border-line)", cursor: "pointer" }}

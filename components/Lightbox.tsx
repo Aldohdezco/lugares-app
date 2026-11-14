@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { photoUrl } from "@/lib/photoUrl";
 import { IconClose, IconChevronDown } from "./icons/UiIcons";
 
 export default function Lightbox({ urls, startIndex, onClose }: { urls: string[]; startIndex: number; onClose: () => void }) {
@@ -48,7 +49,7 @@ export default function Lightbox({ urls, startIndex, onClose }: { urls: string[]
       )}
 
       <img
-        src={urls[index]}
+        src={photoUrl(urls[index])}
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: "90vw", maxHeight: "85vh", borderRadius: 10, border: "1px solid var(--border-line)" }}
       />

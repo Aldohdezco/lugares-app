@@ -2,6 +2,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicUser } from "@/lib/publicUser";
 import { cdmxDayStart, cdmxDayEnd } from "@/lib/dates";
 
 export async function GET(req: Request) {
@@ -18,6 +19,10 @@ export async function GET(req: Request) {
   const memberSpaceIds = (
     await prisma.spaceMember.findMany({ where: { userId }, select: { spaceId: true } })
   ).map((m) => m.spaceId);
+
+  if (spaceId && !memberSpaceIds.includes(spaceId)) {
+    return NextResponse.json({ error: "No perteneces a este espacio" }, { status: 403 });
+  }
 
   const hasDateFilter = Boolean(from || to);
 
@@ -40,7 +45,7 @@ export async function GET(req: Request) {
     },
     include: {
       visits: {
-        include: { photos: true, createdBy: true },
+        include: { photos: true, createdBy: publicUser },
         orderBy: { visitDate: "desc" },
       },
     },
@@ -57,6 +62,11 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const { spaceId, name, category, latitude, longitude, description, visitDate, photoUrls } = body;
+
+  const isMember = spaceId
+    ? await prisma.spaceMember.findUnique({ where: { spaceId_userId: { spaceId, userId } } })
+    : null;
+  if (!isMember) return NextResponse.json({ error: "No perteneces a este espacio" }, { status: 403 });
 
   const place = await prisma.place.create({
     data: {
@@ -75,7 +85,7 @@ export async function POST(req: Request) {
         },
       },
     },
-    include: { visits: { include: { photos: true, createdBy: true } } },
+    include: { visits: { include: { photos: true, createdBy: publicUser } } },
   });
 
   return NextResponse.json(place);
